@@ -1,14 +1,13 @@
-\documentclass[12pt, a4paper]{article}
-
-\usepackage[scale=0.8]{geometry}
+\documentclass[10pt, a4paper]{paper}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 
+\usepackage[scale = 0.75]{geometry}
+
 \usepackage[UKenglish]{babel}
 
 \usepackage{amsmath, amsfonts, amssymb}
-\usepackage{newtxtext, newtxmath}
 \usepackage[scale=0.8]{noto-mono}
 \usepackage{bm}
 
@@ -18,22 +17,21 @@
 \usepackage{tabularx}
 \usepackage{caption}
 \usepackage{cleveref}
+\usepackage{float}
 
 \usepackage{booktabs}
 
-\usepackage{lipsum}
-
-\renewenvironment{abstract}
- {\small
-  \begin{center}
-  \bfseries \abstractname\vspace{-.5em}\vspace{0pt}
-  \end{center}
-  \list{}{%
-    \setlength{\leftmargin}{20mm}
-    \setlength{\rightmargin}{\leftmargin}%
-  }%
-  \item\relax}
- {\endlist}
+% \renewenvironment{abstract}
+%  {\small
+%   \begin{center}
+%   \bfseries \abstractname\vspace{-.5em}\vspace{0pt}
+%   \end{center}
+%   \list{}{%
+%     \setlength{\leftmargin}{20mm}
+%     \setlength{\rightmargin}{\leftmargin}%
+%   }%
+%   \item\relax}
+%  {\endlist}
 
 \captionsetup{
   labelfont = bf,
@@ -41,180 +39,211 @@
   font = small
 }
 
-\usepackage{minted}
-
-\title{Application of Bayesian latent Gaussian models to
-       precipitation data in the context of extreme value theory}
-\author{Hávarður Kári Hlynsson}
+\title{Application of hierarchical Bayesian models
+       to extreme precipitation events}
+\author{Kári Hlynsson}
 \date{}
 
 \begin{document}
   
   \maketitle
-  
-  \begin{abstract}
-    This article constructs Bayesian statistical models for describing extremes
-    in precipitation using data from South England which ranges over a period
-    of 132 years. Three models are considered: (i)
-    a null model with fixed parameters, (ii) a model involving a linear time
-    trend, and (iii) a Bayesian latent Gaussian model with a piecewise linear
-    time trend.\@ Models are fit to data using MCMC sampling and evaluated
-    using various goodness-of-fit estimators, such as the WAIC and DIC, and
-    empirical quantifiers such as MSE from LOOCV.
-  \end{abstract}
 
   \section{Introduction}
-  \subsection{Motivation and statement of purpose}
-  Extreme value theory is a branch of statistics that deals with observations
-  deviating very far from the centre of the underlying distribution they are
-  drawn from.\@ The discipline has proven to be very effective in settings 
-  where extreme deviations occur with little warning or precedence, such as
-  natural disasters, financial crashes, and seemingly superhuman athletic
-  achievements. In particular, the generalized extreme value (GEV) distribution
-  has seen great use due to the result of the Fisher-Tippett theorem.\@ In
-  brief, the theorem states that for a sequence of independent and identically
-  distributed random variables \((Y_i)_{i \geq 1}\), the limiting distribution
-  of block maxima of the \(Y_i\) is necessarily the GEV distribution.\@
-  Although frequentist methods have seen considerable success in employing the
-  distribution for various purposes, the Bayesian modelling framework remains
-  especially attractive due to its ability to integrate prior knowledge with
-  ease, and to capture uncertainty in parameter estimates in settings where
-  frequentist derivations of confidence intervals are unknown.
+  \begin{itemize}
+    \item Describe the pretext of the project; application to protection
+      of infrastructure, prevention of disasters etc.
+    \item Why is the Bayesian framework useful for the modelling of
+      precipitation phenomena?
+    \item What are the prior attempts of modelling, how are they modelled.
+      Is this project a novel approach in any way?
+  \end{itemize}
 
-  In this article, three Bayesian statistical models of precipitation extremes
-  are constructed. The first model is the most simple; the data are fit to a
-  GEV, the parameters of which are fixed in time.\@ The latter two involve a
-  time trend, either unbroken or split across intervals, which aim to capture
-  the effect of e.g.\@ climate change, which some sources state account for a
-  2-5\% increase in precipitation variability globally per year.\@ Another
-  source maintains that an increase of 1K in temperature correspond to an
-  increase of roughly 7\% in saturation vapor pressure, tightly coupled to
-  precipitation intensity, demonstrating the intimate link of global warming to
-  increased precipitation due to intensification of the hydrological cycle.\@
-  Natural disasters that often accompany periods of intense precipitation, such
-  as floods, can cause severe damage to infrastructure and lead to loss of
-  life.\@ The complexity of the underlying physical mechanisms and limited
-  predictability clearly demonstrate the need for effective statistical models,
-  both for preventing and mitigating the damage sustained by such averse
-  events, and to motivate policymakers to install protective regulations.\@
-  Thus, the application of Bayesian modelling, especially hierarchical methods,
-  have the potential to dampen the effects felt from these types of events, and
-  to elucidate the underlying mechanisms driving them.
-
-  \subsection{Mathematical background}
-  Given a data vector \(\bm y \in \mathbf R^n\) where we assume that
-  \(\bm y \sim \mathcal F(\bm \theta)\)
-  
-  \section{Exploration of data}
-  The data consist of \(n = 48212\) observations of cumulative precipitation
-  in millimetres over a 24-hour period from a catchment in South England. 
-  These data are aggregated into yearly maxima, shown as a time series in
-  Figure \ref{fig:timeseries_precip}. Henceforth, precipitation or cumulative
-  precipitation will be understood as being recorded over a 24-hour period. 
-
-  \begin{table}
-    \centering
-    \caption{Table of summary statistics for the South England precipitation
-    data, grouped by decade. The second column, \(s_y\), denotes the sample
-    standard deviation. 95\% confidence intervals are computed for the mean 
-    using the standard \(t\)-distribution formula.}
-    \begin{tabularx}{\textwidth}{XXXXX}
-      \toprule
-      Decade & No. obs. & \(\overline y\)  & \(s_y\) & 95\% CI      \\
-      \midrule
-      1890   &  9       & 22.3             & 5.10    & [18.4, 26.2] \\
-      1900   & 10       & 23.3             & 7.64    & [17.8, 28.8] \\
-      1910   & 10       & 34.3             & 6.94    & [29.4, 39.3] \\
-      1920   & 10       & 30.3             & 12.2    & [21.7, 39.0] \\
-      1930   & 10       & 26.0             & 11.1    & [18.0, 34.0] \\
-      1940   & 10       & 28.8             & 5.09    & [25.1, 32.4] \\
-      1950   & 10       & 31.6             & 12.5    & [22.7, 40.5] \\
-      1960   & 10       & 30.3             & 9.88    & [23.2, 37.4] \\
-      1970   & 10       & 28.9             & 7.22    & [23.8, 34.1] \\
-      1980   & 10       & 34.0             & 7.98    & [28.3, 39.7] \\
-      1990   & 10       & 30.9             & 7.91    & [25.3, 36.6] \\
-      2000   & 10       & 37.8             & 13.0    & [28.5, 47.0] \\
-      2010   & 10       & 30.7             & 7.89    & [25.1, 36.4] \\
-      2020   &  3       & 24.5             & 4.58    & [13.1, 35.9] \\
-      \bottomrule
-    \end{tabularx}
-    \label{tab:precip_summary}
-  \end{table}
-
-  \begin{table}
-    \centering
-    \caption{Five number summary of the columns in the South England data.}
-    \begin{tabularx}{\textwidth}{XXX}
-      \toprule
-              & Year & Max. precip. [mm] \\
-      \midrule
-      Min.    & 1891 & 10.35             \\
-      1st Qu. & 1924 & 22.82             \\
-      Median  & 1956 & 27.95             \\
-      Mean    & 1956 & 29.88             \\
-      3rd Qu. & 1989 & 36.12             \\
-      Max.    & 2022 & 64.22             \\
-      \bottomrule
-    \end{tabularx}
-  \end{table}
-  
-  \begin{figure}[H]
-    \begin{center}
-      \includegraphics[width=\textwidth]{decade.pdf}
-    \end{center}
-    \caption{(\textbf{A}) Time-series plot of annual maxima of precipitation.
-    \textbf{(B1)} Plot of mean maximum precipitation per year by decade.\@ The
-    blue line represents a least squares line and the shaded region represents
-    the 95\% confidence interval.\@ \textbf{(B2)} Residual plot of mean maximum
-    precipitation per year by decade.}
-    \label{fig:timeseries_precip}
-  \end{figure}
-
+  \section{Preliminaries}
+  \subsection{Theoretical background}
+  \begin{itemize}
+    \item The generalised extreme value distribution
+      \begin{itemize}
+        \item Parameters
+        \item Support, cover for different values of \(\xi\)
+        \item Describe usual ranges of parameters in the context of
+          environmental modelling, especially precipitation -- cf. literature
+      \end{itemize}
+    \item Fisher-Tippett theorem states that block maxima of an i.i.d.\@
+      collection of random variables converges to the GEV distribution
+    \item Return levels?
+  \end{itemize}
+  \subsection{Markov-Chain Monte Carlo (MCMC) sampling and \texttt{stan}}
+  \begin{itemize}
+    \item Describe the general idea underlying MCMC sampling, i.e.\@ the
+      high-dimensional integral setting involved in estimation
+    \item Hamiltonian Monte Carlo and the NUTS algorithm.
+  \end{itemize}
+  \subsection{Model diagnostics and evaluation}
+  \begin{itemize}
+    \item Talk about \(\widehat{\mathrm{ESS}}\), \(\hat R\), autocorrelation
+      and trace plots.
+    \item Mention how I will evaluate convergence of chains.
+    \item Describe LOO, PSIS, and WAIC 
+  \end{itemize}
   \section{Bayesian modelling framework}
-  Throughout the course of this article we will explore three different
-  modelling approaches, all employing a Bayesian framework and MCMC sampling
-  for posterior inference. The notation \(\mathcal M_j\) will be used to refer
-  to the models.
+  \subsection{Fixed parameter models}
+  \begin{itemize}
+    \item Null model \(Y_n \sim \mathrm{GEV}(\mu, \sigma, \xi)\) where
+      \(\mu \sim \mathcal N(0, \sigma_\mu^2)\), \(\sigma \sim \mathrm{Exp}
+      (\lambda_\sigma)\), and \(\xi \sim \mathrm{Beta}(\alpha_\xi, \beta_\xi)\)
+      transformed onto the interval \([-0.5, 0.5]\).
+  \end{itemize}
+  \subsection{Timetrend model}
+  \begin{itemize}
+    \item Timetrend model \(Y_n \sim \mathrm{GEV}(\mu_n, \sigma, \xi)\) where
+      \(\mu_n = \mu_0\big(1 + \Delta(t - t_c)\big)\), \(\Delta \sim
+      \mathcal N(0, \sigma_\Delta^2)\), \(\sigma \sim
+      \mathrm{Exp}(\lambda_\sigma)\) and \(\xi \sim \mathrm{Beta}(\alpha_\xi,
+      \beta_\xi)\)
+      shifted onto the interval \([-0.5, 0.5]\). \(\Omega\)
+  \end{itemize}
+  \subsection{Hierarchical model}
+  \begin{itemize}
+    \item Split the time interval \(\{1, \ldots, T\}\) into \(m\) evenly
+      spaced points excluding time \(T\), \(1 = t_1 < t_2 < \ldots < t_m < T\).
+    \item We let \(\mu_t = \sum_{j = 1}^k \beta_j(t - t_j) \mathbf
+      1_{\{t \geq t_j\}}\), assign priors \(\sigma \sim
+      \mathrm{Exp}(\lambda_\sigma)\) and \(\xi \sim \mathrm{Beta}(\alpha_\xi,
+      \beta_\xi)\) shiften onto the interval \([-0.5, 0.5]\).
+    \item Three priors for the vector \(\boldsymbol\beta\) are compared,
+      namely
+      \begin{itemize}
+        \item an i.i.d.\@ Gaussian noise prior, \(\beta_j \sim \mathcal N(0,
+          \sigma_\varepsilon^2)\),
+        \item a random walk prior, \(\beta_1 \sim \mathcal N(0, \sigma_\beta)\)
+          and \(\beta_j \sim \mathcal N(\beta_{j - 1})\)
+        \item an AR1 prior where \(\beta_1 \sim \mathcal N(0, \sigma_\beta)\)
+          and \(\beta_j \sim \mathcal N(\alpha + \phi \beta_{j - 1}, \sigma_\varepsilon)\)
+          for \(j \geq 2\)
+      \end{itemize}
+    \item We then optimize over the hyperparameter \(m\) to obtain the best
+      results
+  \end{itemize}
+  \section{Results}
+  \begin{itemize}
+    \item Mention convergence good excluding some divergent transitions
+      (proportion less than 3\%), trace plots are shown in appendix
+    \item \(\hat R \approx 1\), \(\widehat{\mathrm{ESS}} > N\)
+    \item Table with parameter estimate tables for each of the parameters
+    \item Table with WAIC, LOO, and PSIS for each of the models side by
+      side with \(m = 6\) as candidate
+    \item Table showing WAIC, LOO, and PSIS and a figure showing trends of
+      these estimates as a function of \(m \in [n]\)
+  \end{itemize}
 
-  The first model we consider is a naive fixed-parameter model of the form
-  \begin{align*}
-    Y_t &\sim \mathrm{GEV}(\mu, \sigma, \xi), \\
-    \mu &\sim \mathcal N(0, \tau_\mu^2), \\
-    \sigma &\sim \mathrm{Exp}(\lambda_\sigma), \\
-    \beta &\sim \mathrm{Beta}(4, 4)
-  \end{align*}
-  where \(Y_t\) denotes the maximum annual precipitation at time \(t\).
+  \begin{table}[H]
+    \centering
+    \caption{Parameter summary statistics for the null model.}
+    \begin{tabular}{crrrrrrcc}
+      \toprule
+      & Mean & Mean SE & SD & 2.5\% & 50\% & 97.5\% & \(\widehat{\mathrm{ESS}}\) \\
+      \midrule
+      \(\mu\) & 25.3575 & 0.0046 & 0.7484 & 23.9136 & 25.3489 & 26.8523 & 26294\\
+      \(\sigma\) & 7.7143 & 0.0033 & 0.5395 & 6.7254 & 7.6897 & 8.8425 & 26309\\
+      \(\xi\) & \(-0.0106\) & 0.0004 & 0.0604 & \(-0.1222\) & \(-0.0130\) & 0.1134 & 23787\\
+      \bottomrule
+    \end{tabular}
+  \end{table}
 
-  The second model that is posed is a time-variant model with a linear trend
-  that can be written in the form 
-  \begin{align*}
-    Y_t &\sim \mathrm{GEV}(\mu_t, \sigma, \xi),  \\
-    \mu_t &:= \mu_0 \{1 + \Delta (t - t_c)\}, \\
-    \mu_0 &\sim \mathcal N(0, \tau_\mu^2), \\
-    \Delta &\sim \mathcal N(0, \tau_\Delta^2), \\
-    \sigma &\sim \mathrm{Exp}(\lambda_\sigma), \\
-    \xi &\sim \mathrm{Beta}(4, 4)
-  \end{align*}
-  where \(t_c\) represents the median time of the data set, calculated as
-  \(t_c = \lfloor \frac{t_N - t_1}{2} \rfloor\). The last model that we explore 
-  is a hierarchical Bayesian model of the form
-  \begin{align*}
-    Y_t &\sim \mathrm{GEV}(\mu_t, \sigma, \xi), \\
-    \mu_t &:= \sum_{k = 1}^K \beta_k (t - t_0) \mathbf 1_{t > t_k}, \\
-    \sigma &\sim \mathrm{Exp}(\lambda_\sigma), \\
-    \xi &\sim \mathrm{Beta}(4, 4).
-  \end{align*}
-  In this model, the random effects vector \(\bm \beta\) is assigned three
-  different priors;
-  \begin{align*}
-    \bm \beta \sim \mathcal N(\bm 0, \Sigma_\beta),
-    \quad \Sigma_\beta = \mathrm{diag}(\sigma_\beta), \quad
-    \sigma_\beta \sim \mathrm{Exp}(\lambda)
-  \end{align*}
-  In other words,
-  \[
-    \mu_t := \gamma_t (t - t_0) \quad \text{where} \quad
-    \gamma_t := \sum_{}
-  \]
-  Another prior that we will use is the Gaussian random walk. Let
+  \begin{table}[H]
+    \centering
+    \caption{Parameter summary statistics for the timetrend model.}
+    \begin{tabular}{crrrrrrc}
+      \toprule
+      & Mean & Mean SE & SD & 2.5\% & 50\% & 97.5\% & \(\widehat{\mathrm{ESS}}\) \\
+      \midrule
+      \(\mu_0\) & 25.3093 & 0.0053 & 0.7164 & 23.9188 & 25.2998 & 26.7283 & 18283\\
+      \(\sigma\) & 7.2481 & 0.0041 & 0.5370 & 6.2669 & 7.2217 & 8.3736 & 17497 \\
+			\(\xi\) & 0.0267 & 0.0005 & 0.0670 & -0.0979 & 0.0247 & 0.1630 & 17907 \\
+      \(\Delta\) & 0.0022 & 0.0000 & 0.0006 & 0.0009 & 0.0021 & 0.0034 & 49770 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \begin{table}[H]
+		\centering
+		\caption{Parameter summary statistics for the i.i.d.\@ hierarchical model.}
+    \begin{tabular}{crrrrrrcc}
+     \toprule
+			& Mean & Mean SE & SD & 2.5\% & 50\% & 97.5\% & \(\widehat{\mathrm{ESS}}\) \\
+			\midrule
+			\(\beta_1\) & 2.2298 & 0.0018 & 0.2277 & 1.7759 & 2.2336 & 2.6718 & 15951 \\
+			\(\beta_2\) & \(-3.2579\) & 0.0049 & 0.5961 & \(-4.4262\) & \(-3.2634\) & \(-2.0913\) & 14792 \\
+			\(\beta_3\) & 1.7557 & 0.0052 & 0.6593 & 0.5108 & 1.7382 & 3.0974 & 16318 \\
+			\(\beta_4\) & \(-1.1203\) & 0.0045 & 0.6225 & \(-2.3156\) & \(-1.1303\) & 0.1306 & 19194 \\
+			\(\beta_5\) & 0.6396 & 0.0045 & 0.6276 & \(-0.5978\) & 0.6374 & 1.8775 & 19537 \\
+			\(\beta_6\) & \(-0.2340\) & 0.0043 & 0.5988 & \(-1.3858\) & \(-0.2476\) & 0.9747 & 19817 \\
+			\(\beta_7\) & 0.2380 & 0.0042 & 0.6065 & \(-0.9291\) & 0.2269 & 1.4593 & 20673 \\
+			\(\beta_8\) & \(-0.8775\) & 0.0042 & 0.6611 & \(-2.1926\) & \(-0.8649\) & 0.3987 & 24304 \\
+			\(\sigma\) & 9.0816 & 0.0058 & 0.8057 & 7.6243 & 9.0454 & 10.7854 & 19423 \\
+			\(\tau\) & 2.0024 & 0.0096 & 2.0019 & 0.0482 & 1.4161 & 7.3918 & 43555 \\
+			\(\xi\) & 0.0019 & 0.0006 & 0.0828 & \(-0.1502\) & \(-0.0017\) & 0.1730 & 16960 \\
+			\bottomrule
+    \end{tabular} 
+  \end{table}
+
+  \begin{table}[H]
+		\centering
+		\caption{Parameter summary statistics for the random walk hierarchical model.}
+    \begin{tabular}{crrrrrrc}
+     \toprule
+			& Mean & Mean SE & SD & 2.5\% & 50\% & 97.5\% & \(\widehat{\mathrm{ESS}}\) \\
+			\midrule
+			\(\beta_1\) & 1.8779 & 0.0026 & 0.2753 & 1.3014 & 1.8884 & 2.3879 & 11368 \\
+			\(\beta_2\) & -2.2532 & 0.0066 & 0.6797 & -3.5642 & -2.2665 & -0.8758 & 10743\\
+			\(\beta_3\) & 0.7112 & 0.0059 & 0.6394 & -0.4595 & 0.6915 & 2.0363 & 11680 \\
+			\(\beta_4\) & -0.5104 & 0.0042 & 0.5293 & -1.5728 & -0.4988 & 0.5064 & 16151 \\
+			\(\beta_5\) & 0.3131 & 0.0038 & 0.4908 & -0.6317 & 0.3068 & 1.2964 & 16702 \\
+			\(\beta_6\) & -0.0404 & 0.0035 & 0.4682 & -0.9591 & -0.0443 & 0.8986 & 17806 \\
+			\(\beta_7\) & 0.0611 & 0.0036 & 0.4786 & -0.8490 & 0.0471 & 1.0383 & 17755 \\
+			\(\beta_8\) & -0.6947 & 0.0039 & 0.5661 & -1.8410 & -0.6806 & 0.3889 & 21513 \\
+			\(\sigma\) & 8.8751 & 0.0057 & 0.8147 & 7.3887 & 8.8358 & 10.5877 & 20115 \\
+			\(\tau\) & 2.3623 & 0.0078 & 0.9292 & 0.9751 & 2.2162 & 4.5857 & 14083 \\
+			\(\xi\) & 0.0421 & 0.0007 & 0.0896 & -0.1244 & 0.0388 & 0.2261 & 16188 \\
+			\bottomrule
+    \end{tabular} 
+  \end{table}
+
+  \begin{table}[H]
+		\centering
+		\caption{Parameter summary statistics for the AR1 hierarchical model.}
+    \begin{tabular}{crrrrrrc}
+     \toprule
+			& Mean & Mean SE & SD & 2.5\% & 50\% & 97.5\% & \(\widehat{\mathrm{ESS}}\) \\
+			\midrule
+      beta[1] & 1.9853 & 0.0021 & 0.2310 & 1.5324 & 1.9853 & 2.4421 & 12600\\
+      beta[2] & -2.6416 & 0.0052 & 0.5657 & -3.7952 & -2.6304 & -1.5543 & 11657\\
+      beta[3] & 1.2968 & 0.0051 & 0.5710 & 0.2223 & 1.2777 & 2.4655 & 12321\\
+      beta[4] & -1.0662 & 0.0044 & 0.5231 & -2.0865 & -1.0760 & -0.0197 & 14002\\
+      beta[5] & 0.7417 & 0.0044 & 0.5170 & -0.2772 & 0.7404 & 1.7540 & 14093\\
+      beta[6] & -0.3992 & 0.0042 & 0.5014 & -1.3911 & -0.4043 & 0.5987 & 14351\\
+      beta[7] & 0.3087 & 0.0042 & 0.5227 & -0.6862 & 0.2950 & 1.3778 & 15596\\
+      beta[8] & -0.7093 & 0.0040 & 0.5497 & -1.8376 & -0.6958 & 0.3341 & 19044\\
+      sigma & 8.7397 & 0.0064 & 0.7942 & 7.3026 & 8.6966 & 10.4252 & 15177\\
+      tau & 0.8126 & 0.0030 & 0.3545 & 0.3718 & 0.7363 & 1.6891 & 14176\\
+      phi & -0.7695 & 0.0020 & 0.2454 & -1.2245 & -0.7825 & -0.2521 & 15359\\
+      xi & 0.0491 & 0.0008 & 0.0897 & -0.1168 & 0.0456 & 0.2329 & 11860\\
+			\bottomrule
+    \end{tabular} 
+  \end{table}
+
+  \section{Discussion}
+  \begin{itemize}
+    \item Figure of predicted values with 95\% credible sets against observed
+      values for best model
+  \end{itemize}
+
+  \newpage
+
+  \appendix
+
+  \section{Convergence of MCMC samplers}
+
+  \section{Code used in the project}
+
 \end{document}

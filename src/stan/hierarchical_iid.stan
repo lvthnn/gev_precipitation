@@ -10,7 +10,6 @@ data {
 parameters {
   vector[m] beta;
   real<lower = 0> sigma;
-  real<lower = 0> tau;
   real<lower = 0, upper = 1> xi_0;  
 }
 
@@ -19,13 +18,11 @@ transformed parameters {
 }
 
 model {
-  tau ~ exponential(0.5);
-  sigma ~ exponential(0.5);
+  sigma ~ exponential(3);
   xi_0 ~ beta(4, 4);
 
-  beta[1] ~ normal(0, 10);
-  for (j in 2:m)
-    beta[j] ~ normal(beta[j - 1], tau);
+  for (j in 1:m)
+    beta[j] ~ normal(0, 5);
 
   y ~ gevh(beta, t_m, sigma, xi);
 }

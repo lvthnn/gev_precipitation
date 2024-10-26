@@ -20,10 +20,10 @@ transformed parameters {
 
 model {
   tau ~ exponential(0.5);
-  sigma ~ exponential(0.5);
+  sigma ~ exponential(3);
   xi_0 ~ beta(4, 4);
 
-  beta[1] ~ normal(0, 10);
+  beta[1] ~ normal(0, 5);
   for (j in 2:m)
     beta[j] ~ normal(beta[j - 1], tau);
 

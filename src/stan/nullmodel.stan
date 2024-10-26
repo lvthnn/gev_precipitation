@@ -16,7 +16,7 @@ transformed parameters {
 }
 
 model {
-  mu ~ normal(0, 10);
+  mu ~ normal(0, 5);
   sigma ~ exponential(0.5);
   xi_0 ~ beta(4, 4);
   
