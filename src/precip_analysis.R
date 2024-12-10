@@ -1,8 +1,8 @@
+source("src/utils.R")
+
 # Global variables
 n_iter <- 13000
 warmup <- 3000
-
-seed <- 31415926
 
 # Load in the data
 dt_maxprecip <- readr::read_csv(
@@ -18,42 +18,6 @@ model_data <- list(
 # Set up parallel cores
 options(mc.cores = parallel::detectCores())
 
-fit_model <- function(file, data, chains) {
-  model <- rstan::stan_model(file = file)
-
-  model_samples <- rstan::sampling(
-    model,
-    data = data,
-    iter = n_iter,
-    warmup = warmup,
-    init_r = 0.025,
-    seed = seed
-  )
-
-  return(model_samples)
-}
-
-model_diag <- function(model_samples) {
-  loglik <- loo::extract_log_lik(model_samples)
-
-  suppressWarnings({
-    waic <- loo::waic(loglik)
-    loo <- loo::loo(loglik)
-    psis <- loo::psis(loglik)
-  })
-
-  return(list(waic, loo, psis))
-}
-
-get_tex_table <- function(model_samples, pars) {
-  post_sum <- rstan::summary(
-    model_samples,
-    regex_pars = pars,
-    probs = c(0.025, 0.5, 0.975)
-  )
-
-  knitr::kable(post_sum$summary, digits = 4, format = "latex")
-}
 
 # Null model
 null_fit <- fit_model(
@@ -69,14 +33,14 @@ timetrend_fit <- fit_model(
 
 # Hierarchical model -- i.i.d. prior for random effects
 
-m <- 6
-t_m <- floor(seq(1, nrow(dt_maxprecip), length = m + 2))[-c(1, m + 2)]
+m <- 33
+t_m <- floor(seq(1, nrow(dt_maxprecip), length = m + 1))[-c(m + 1)]
 
 hmodel_data <- list(
   n = nrow(dt_maxprecip),
   m = m,
   y = dt_maxprecip$max_precip,
-  t_m = floor(seq(1, nrow(dt_maxprecip), length = m + 2))[-c(1, m + 2)]
+  t_m = t_m
 )
 
 iid_fit <- fit_model(
@@ -99,6 +63,7 @@ save(
   file = "fits_2310.RData"
 )
 
+# =#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # Evaluation
 # - PSIS og LOOIC
 # - WAIC
@@ -109,5 +74,35 @@ save(
 #   - Hvaða stærð fær maður á flóði fyrir gefinn endurkomutíma?
 #     — x. t — 1/(1 - q) — q quantile af breytunni [length of return period]
 #     — y. quantile of the random variable [return level]
+# =#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 
-#
+gev_mean <- function(t_m, fit) {
+  m <- length(t_m)
+  betas <- rstan::summary(fit)$summary[1:m, 1]
+  mu_0 <- rstan::summary(fit)$summary["mu_0", 1]
+  sigma <- rstan::summary(fit)$summary["sigma", 1]
+  xi <- rstan::summary(fit)$summary["xi", 1]
+
+  mu_t <- c()
+  m <- length(betas)
+
+  for (t in 1:132) {
+    mu <- mu_0
+    for (j in 1:m) {
+      if (t > t_m[j]) mu <- mu + betas[j] * (t - t_m[j])
+    }
+
+    mu_t[t] <- mu
+  }
+
+  gev_mean <- mu_t + sigma * (gamma(1 - xi) - 1) / xi
+
+  return(gev_mean)
+}
+
+gm <- gev_mean(t_m, iid_fit)
+plot(1:132, gm,
+  type = "l", lwd = 2, col = "red", ylim = range(hmodel_data$y),
+  xlab = "Year", ylab = expression(mu)
+)
+lines(1:132, hmodel_data$y)

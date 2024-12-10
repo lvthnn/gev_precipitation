@@ -10,9 +10,9 @@ data {
 parameters {
   vector[m] beta;
   real<lower = 0> sigma;
-  // real<lower = 0> tau;
-  real<lower = 0, upper = 1> xi_0;  
-  real phi;
+  real<lower = 0, upper = 1> xi_0;
+  real<lower = -1, upper = 1> phi;
+  real mu_0;
 }
 
 transformed parameters {
@@ -21,19 +21,19 @@ transformed parameters {
 
 model {
   sigma ~ exponential(3);
-  // tau ~ exponential(0.5);
-  phi ~ normal(0, 5);
+  phi ~ uniform(-1, 1);
+  mu_0 ~ normal(0, 10);
   xi_0 ~ beta(4, 4);
 
   beta[1] ~ normal(0, 5);
   for (j in 2:m)
     beta[j] ~ normal(phi * beta[j - 1], 5);
 
-  y ~ gevh(beta, t_m, sigma, xi);
+  y ~ gevh(mu_0, beta, t_m, sigma, xi);
 }
 
 generated quantities {
-  vector[n] log_lik;
-  for (i in 1:n)
-    log_lik[i] = gevh_lpdf([y[i]]' | beta, t_m, sigma, xi);
+  real log_lik;
+  log_lik = gevh_lpdf(y | mu_0, beta, t_m, sigma, xi);
 }
+
