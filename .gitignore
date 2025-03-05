@@ -49,15 +49,22 @@ po/*~
 rsconnect/
 
 ## Core latex/pdflatex auxiliary files:
-pdf/
-
-*.aux
-*.lof
-*.log
-*.lot
-*.fls
-*.out
-*.toc
+pdf/presentation
+**/*.aux
+**/*.lof
+**/*.log
+**/*.lot
+**/*.fls
+**/*.out
+**/*.toc
+**/*.fdb_latexmk
+**/*.nav
+**/*.snm
+**/*.synctex.gz
+**/*.bbl
+**/*.bcf
+**/*.blg
+**/*.run.xml
 
 ## Intermediate documents:
 *.dvi
@@ -67,8 +74,5 @@ pdf/
 # *.ps
 # *.eps
 # *.pdf
-
-## Generated if empty string is given at "Please type another file name for output:"
-.pdf
 
 **/.DS_Store

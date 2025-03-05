@@ -1,0 +1,478 @@
+\documentclass[12pt, a4paper]{paper}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\usepackage[scale = 0.75]{geometry}
+
+\usepackage[UKenglish]{babel}
+
+\usepackage{sourcesanspro}
+\usepackage{newtx}
+\usepackage{amsmath, amsfonts}
+\usepackage[scaled = 0.8]{beramono}
+
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{cleveref}
+\usepackage{float}
+
+\usepackage{enumitem}
+
+\usepackage[sorting = none]{biblatex}
+\usepackage{csquotes} \addbibresource{references.bib}
+
+\graphicspath{{../img}}
+
+\usepackage{booktabs}
+
+\captionsetup{
+  labelfont = {bf, sf},
+  labelsep = period,
+  font = small
+}
+
+\title{Application of Bayesian methods to modelling of extreme precipitation
+        events}
+\author{Kári Hlynsson}
+\date{}
+
+\begin{document}
+  
+  \maketitle
+
+  \section{Introduction}
+  Extreme precipitation events, such as flooding, pose significant risks to
+  both infrastructure and human safety.\@ Events are unpredictable, localised,
+  and difficult to estimate due to sparse data, which are sourced from gauging
+  stations built in close proximity to catchments such as streams, wells, lakes,
+  canals, and reservoirs.\@ \cite{dyrrdal_bayesian_2015} Accurate modelling and
+  prediction is vital for the implementation of preventive measures to mitigate
+  damage caused by such events, as well as serving as interesting applications
+  a host of statistical methods explored here.
+
+  In this article, the application of Bayesian modelling methods, particularly
+  Markov-chain Monte Carlo sampling, to annual maximum precipitation data
+  totalling \(N = 132\) measurements is considered.\@ The generalised extreme
+  value (GEV) distribution is used to model the response layer with (i) fixed
+  parameters, or a "stationary" model, and (ii) an evolving location parameter
+  with respect to time, a "non-stationary" model.\@ For the latter type, two
+  models are proposed; the former implements a linear time trend, whereas the
+  latter model allows a more flexible trend.\@ Two information criteria,
+  WAIC and LOOIC, are used for model comparison and selection.\@ Posterior
+  predictive checks are used for model evaluation. Data processing and
+  visualisation was performed in the \texttt{R} language and MCMC
+  sampling was implemented in \texttt{Stan}. \cite{carpenter_stan_2017,
+  r_core_team_r_2024} Code and data used in the project are available at
+  \url{https://github.com/lvthnn/gev_precipitation_data}.
+
+  \section{Preliminaries}
+  \subsection{Theoretical background}
+  The generalised extreme value (GEV) distribution has parameters
+  \(\mu \in \mathbf R\), \(\sigma \in \mathbf R_+\), and \(\xi \in \mathbf R\),
+  termed the location, shape, and scale parameters, respectively. The cumulative
+  density is
+  \[
+    \mathrm{GEV}(y \mid \mu, \sigma, \xi) =
+    \begin{cases}
+      \exp\left(-\big[1 + \xi (y - \mu)/\sigma\big]^
+      {-1/\xi}_+\right), &\xi \neq 0, \\
+      \exp\left(-\exp\left[-(y - \mu)/\sigma\right]
+      \right), &\xi = 0
+    \end{cases}
+  \]
+  and support \((-\infty, \mu - \sigma/\xi]\), \((-\infty, \infty)\), and
+  \([\mu - \sigma/\xi, \infty)\) for \(\xi < 0\), \(\xi = 0\), and \(\xi > 0\),
+  respectively. This distribution arises naturally in a statistical setting
+  involving normalised block maxima of
+  random variables \((X_n)_{n \in \mathbf N}\), defined by \((M_n - a_n)/b_n\)
+  for suitable constants \(a_n \in \mathbf R_+\) and \(b_n \in \mathbf R\)
+  where \(M_n = \max\{X_1, \ldots, X_n\}\), as by the Fisher-Tippett theorem,
+  the only limiting distribution for \(M_n\) is the GEV distribution.
+  \cite{coles_introduction_2001,hazra_bayesian_2023} In other words, if
+  \[
+    \Pr\{(M_n - b_n) / a_n \leq y\} \to G(y),
+  \]
+  then necessarily \(G(y) = \mathrm{GEV}(y \mid \mu, \sigma, \xi)\) for
+  suitable \(\mu \in \mathbf R\), \(\sigma \in \mathbf R_+\), and \(\xi \in
+  \mathbf R\). If \(Y\) is a GEV random variable, then it has expectation
+  \[
+    \mathrm{E}[Y] = \begin{cases}
+      \mu + \sigma[\Gamma(1 - \xi) - 1]/\xi
+        &\xi \in (-\infty, 1) \setminus \{0\}, \\
+      \mu + \sigma\gamma &\xi = 0, \\
+      \infty &\xi \geq [1, \infty),
+    \end{cases}
+  \]
+  and variance given by
+  \[
+    \mathrm{var}[Y] = \begin{cases}
+      \sigma^2 [\Gamma(1 - 2\xi) - \Gamma(1 - \xi)^2] / \xi^2
+        & \xi \in (-\infty, 1/2) \setminus \{0\}, \\
+      \sigma^2 \pi^2 / 6, & \xi = 0, \\
+      \infty & \xi \geq 1/2,
+    \end{cases}
+  \]
+  where \(\Gamma(\cdot)\) is the gamma function and \(\gamma \approx 0.5772\)
+  is Euler's constant.
+
+  \subsection{Converge diagnostics, model selection, and evaluation}
+  For each model, four separate chains are run for a total of 9000 iterations
+  and the first 1000 are discarded as burn-in. To ensure that the chains are
+  sufficiently close to stationarity, we use trace and autocorrelation plots for
+  visual confirmation of convergence, and the potential scale reduction factor,
+  denoted \(\hat R\), as well effective sample size \(\widehat{\mathrm{ESS}}\).
+  The former diagnostic compares parameter estimates between and within the
+  different chains respectively. If the estimates are very similar, \(\hat R\)
+  is close to one.\@ Higher values may indicate that chains run simultaneously
+  from different initial values have not converged and may thus indicate a
+  problem with the sampler.
+
+  The latter quantity, the effective sample size, or ESS, is defined as
+  \[
+    \mathrm{ESS} = \frac{N_{\mathrm{iter}}}{1 + 2 \sum_{l = 1}^\infty \rho(l)},
+  \]
+  where \(N_\mathrm{iter}\) is the number of samples drawn, and \(\rho(l)\) is
+  the autocorrelation between samples \(l\) iterations apart. Low effective
+  sample size indicates that samples produced by the MCMC algorithm are
+  highly correlated and thus provide a biased view of the posterior
+  distribution. \cite{stan_development_team_convergence_nodate} Resultingly,
+  parameter inference is unreliable.
+
+  WAIC and LOOIC are used to compare models and to select
+  the optimal value of the hyperparameter \(m\) in the case of piecewise
+  hierarchical models.\@ Both are asymptotically equivalent to cross validation,
+  although LOOIC has been shown to outperform in WAIC in certain cases, such as
+  uninformative priors or when influential observations are present in the
+  data. \cite{watanabe_higher_2018, vehtari_practical_2017}
+
+  Samples from the posterior predictive distribution (PPD) are useful tool
+  for diagnosing lack of fit. In order to obtain such samples, the parameter
+  vectors \(\theta^{(1)}, \ldots, \theta^{(N_{\mathrm{iter}})}\) are used to
+  generate samples \(y_{\mathrm{rep}}^{(1)}, \ldots, y_{\mathrm{rep}}^{(N_{
+  \mathrm{iter}})}\) such that \(y_{\mathrm{rep}}^{(m)} \sim \pi(y \mid
+  \theta^{(m)})\). The samples are standardised and used in posterior
+  predictive checks, where summary statistics of the standardised data is
+  compared to the distribution formed by the PPD samples with respect to
+  said statistic. If the model fits the data well, one would expect
+  the distribution to be close to the observed statistic.
+
+  \subsection{Overview of data}
+  The raw data originate from a weather station in the south of England and
+  consist of \(48212\) measurements of cumulative precipitation
+  in millimetres over a 24 hour period, from 12:00 to 12:00 the day after,
+  spanning approximately 132 years. Tail observations are removed so that the
+  data are exactly over a \(N =132\) year period, where the measurements in
+  year \(n\) will be denoted by \(X_1^{(n)}, \ldots, X_{365}^{(n)}\) with \(n
+  \in \{1, \ldots, 365\}\). The maximum annual precipitation is then defined by
+  \(y^{(n)} = \max\{X_1^{(n)}, \ldots, X_{365}^{(n)}\}\). This is used to
+  define the data vector \(y = \{y^{(1)}, \ldots, y^{(N)}\}\) which constitutes
+  the data used in the study. Table \ref{tab:data_summary} shows summary
+  statistics for \(y\).
+
+  \begin{table}[H]
+    \centering
+    \caption{Summary statistics of the aggregated data, \(y\).}
+    \begin{tabular}{cccccc}
+      \toprule
+      Min.  &  \(Q_1\) &  Median  &   Mean   &  \(Q_3\)  &  Max. \\
+      \midrule
+      10.35 &  22.82   &  27.95   &   29.88  &  36.12    &  64.22  \\
+      \bottomrule
+    \end{tabular}\label{tab:data_summary}
+  \end{table}
+
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.96\textwidth]{trendplot.pdf}
+    \caption{Line plot of the aggregated data, \(y\).}
+  \end{figure}
+
+  \section{Bayesian modelling framework}\label{bayesian_modelling_framework}
+  The simplest model is a fixed-parameter model, such that the response is
+  assigned \(\mathrm{GEV}(\mu, \sigma, \xi)\) likelihood where \(\mu \sim
+  \mathrm N(0, \sigma_\mu)\), \(\sigma \sim \mathrm{Exp}(\lambda_\sigma)\),
+  and \(\xi\) is assigned a \(\mathrm{Beta}(\alpha_\xi, \beta_\xi)\) prior
+  which is translated onto the \([-0.5, 0.5]\) interval.\@ Furthermore, \(\sigma
+  _\mu = 10\), \(\lambda_\sigma = 3\), and \(\alpha_\xi = \beta_\xi = 4\) so
+  that the parameter \(\xi\) has most density close to the origin, favouring
+  small values of \(\xi\), in the spirit of \cite{johannesson_approximate_2022}.
+  \@ For non-stationary modelling, two hierarchical models, in which the
+  location parameter \(\mu\) evolves with time, are presented.\@ In the former
+  such model, \(\mu_t = \mu_0 (1 + \Delta(t - t_c))\), where \(\mu_0 \sim
+  \mathrm N(0, \sigma_ {\mu_0})\), \(\Delta \sim \mathrm N(0, \sigma_ {\Delta}
+  )\) and \(\sigma_{\mu_0} = \sigma_ \Delta = 10\), and \(t_c = 66\) is the
+  midpoint of elapsed time in the data set.
+
+  In the latter model, the location parameter \(\mu_t\) at time \(t\) is
+  modelled using a piecewise linear trend \(\mu_t = \mu_0 + \sum_{j = 1}^m
+  \beta_j \mathbf 1_{\{t > t_j\}} (t - t_j)\) where \(1 = t_1 < \cdots < t_m < 
+  n\) is an equally-spaced partition of \(\{1, \ldots, n\}\) into \(m\)
+  timepoints. As before, \(\sigma \sim \mathrm{Exp}(\lambda_\sigma)\),
+  \(\mu_0 \sim \mathrm N(0, \sigma_{\mu_0})\), and \(\xi \sim \mathrm{Beta}
+  (\alpha_\xi, \beta_\xi)\) shifted onto the \([-0.5, 0.5]\) interval.\@ Three
+  prior structures for the trend coefficients \(\beta_1, \ldots, \beta_m\) are
+  considered:
+  \begin{enumerate}[label = (\alph*)]
+    \item an i.i.d.\@ prior where \(\beta_1 \sim \mathrm N(0,
+      \sigma_\beta^{(1)})\) and \(\beta_j \sim \mathrm N(0, \sigma_\beta)\)
+      for \(j \geq 2\),
+    \item a random walk prior \(\beta_1 \sim \mathrm N(0, \sigma_\beta^{(1)})
+      \) and \(\beta_j \sim \mathrm N(\beta_{j - 1}, \sigma_\beta)\) for
+      \(j \geq 2\), and
+    \item an AR(1) prior where \(\beta_1 \sim \mathrm N(0, \sigma_\beta^{(1)})
+      \), and \(\beta_j \sim \mathrm N(\phi \beta_{j - 1}, \sigma_\beta)\)
+      for \(j \geq 2\).
+  \end{enumerate}
+
+  Here, \(\sigma^{(1)}_\beta = 0.10\) while \(\sigma_\beta = 0.01\) to allow
+  the trend to adapt to greater variations when the data exhibits a rapid rise
+  or fall over time. In the AR(1) prior, \(\phi\) is assigned a
+  \(\mathrm{Unf}(-1, 1)\) prior to ensure stationarity.\@ For each prior
+  structure, the number of coefficients \(m\) is varied and optimised over
+  WAIC and LOOIC to select the optimal architecture for the latent layer.
+
+  \section{Results}
+  All of the fitted models converged to their respective stationary
+  distributions with \(\hat R \approx 1\) and \(\widehat{\mathrm{ESS}}\)
+  exceeding a hundred for all parameters.\@ Figures 6-11 in Appendix A show
+  trace and autocorrelation for the models, with the random walk prior
+  representing the piecewise model. Noise-like behaviour observed in the trace
+  plots is indicative of convergence, and a steep drop in the autocorrelation
+  function \(\rho(l)\) for \(l > 5\) indicates independent sampling.
+
+  Table \ref{tab:waic_looic} shows LOOIC and WAIC estimates for each of the
+  proposed models along with the optimal value of \(m\).\@ The piecewise model
+  with the random walk prior resulted in the most favourable results with
+  respect to WAIC and LOOIC despite relatively small differences in
+  performance. However, the non-stationary models display a marked increase in
+  accuracy compared to the stationary fixed-parameter model (\(\widehat{
+  \mathrm{LOOIC}} \approx 965\), \(\widehat{\mathrm{WAIC}} \approx 962\)). A
+  line plot of WAIC and LOOIC estimates for the proposed models are shown in
+  Figure \ref{fig:waic_looic}.\@ The optimal value of the hyperparameter \(m\)
+  in the piecewise linear trend model is \(m = 18\). In light of these results,
+  the remainder of the model evaluation will focus on the random walk piecewise
+  model with said value of \(m\). Summary statistics for parameters \(\mu_0\),
+  \(\sigma\), and \(\xi\) is shown in Table \ref{tab:rw_posterior}, and an index
+  plot of the \(\beta_j\) with 95\% credible sets is shown in Figure
+  \ref{fig:betas}.
+
+  \begin{table}[H]
+    \centering
+    \caption{LOOIC and WAIC estimates for the proposed models.\@ For the
+      piecewise linear trend model, estimates for all three prior structures
+      are shown for the optimal choice of hyperparameter \(m\), shown enclosed
+      in paragraphs alongside information criteria estimates.}
+    \begin{tabular}{rccccc}
+      \toprule
+      &            &                           & \multicolumn{3}{c}{Piecewise trend}     \\
+                                                          \cmidrule(rl){4-6}
+                   & Stationary & Linear trend & AR(1)       & I.I.D.      & R.W.        \\
+      \midrule
+      \(\widehat{\mathrm{LOOIC}}\) & 965.2      & 955.0        & 954.2 (6)  & 953.8 (18)   & 953.2 (18)  \\
+      \(\widehat{\mathrm{WAIC}}\)  & 961.9      & 951.9        & 951.1 (4)  & 951.0 (33)   & 950.3 (18)  \\
+      \bottomrule
+    \end{tabular}
+    \label{tab:waic_looic}
+  \end{table}
+
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{optim_m.pdf}
+    \caption{Line plot showing WAIC and LOOIC estimates as a function of number
+    of coefficients \(m\) in the piecewise linear trend model. Dotted lines
+    show WAIC and LOOIC for the linear trend model.}
+    \label{fig:waic_looic}
+  \end{figure}
+
+  The comparison of the quantiles of the standardised observed data with
+  standardised PPD samples, shown in Figure \ref{fig:qqplots}, along with
+  comparisons of empirical density function estimates, shown in Figure
+  \ref{fig:edf_comparison}, indicate that the random walk piecewise model is a
+  good fit for the data. Posterior predictive checks shown in Figure
+  \ref{fig:ppc_rw} with Bayes \(p\)-values displayed with each summary statistic
+  show that the model is able to adapt to the data reasonably well to the data,
+  with the maximum, mean and median values observed in the data falling within
+  the 95\% credible sets of the transformed PPD distribution. The minimum
+  deviates the most, with a Bayes \(p\)-value of \(0.14\), which is far from
+  being indicative of a lack of fit, although it suggests that the model
+  slightly overestimates the minimum in the data. A comparison of density
+  function estimates of a subset of samples from the standardised PPD, shown in
+  Figure \ref{fig:edf_comparison} further reinforces the aforementioned result,
+  showing that the curves align closely.
+
+  That the random walk prior structure is most effective in modelling the trend
+  may be explained by the smoothness condition that is imposed on the \(\beta_j
+  \) compared to the i.i.d.\@ prior, where the coefficients are allowed to
+  explore the sample space more freely. However, it seems that adding an
+  autoregressive coefficient as in the AR(1) is detrimental in terms of
+  accuracy, which could indicate that the added hyperparameter may be
+  overfitting the data.
+
+  \begin{table}[H]
+    \centering
+    \caption{Summary statistics for fitted parameters in the random walk
+    piecewise model. The quantities \(q_{0.025}\) and \(q_{0.975}\) are 
+    the \(2.5\%\) and \(97.5\%\) quantiles, respectively. Thus, the \(95\%\)
+    credible sets for the parameters are given by \((q_{0.025}, q_{0.975})\).}
+    \begin{tabular}{lccccc}
+      \toprule
+                     &  Mean     &  Median   & SD     & \(q_{0.025}\) &  \(q_{0.975}\) \\
+      \midrule
+      \(\mu_0\)      & 20.7      & 20.7      & 1.34   & 18.0          & 23.3           \\
+      \(\sigma\)     & 6.56      &  6.54     & 0.454  & 5.72          & 7.50           \\
+      \(\xi\)        & 0.0593    &  0.0574   & 0.0629 & -0.0587       & 0.187          \\
+      \bottomrule
+    \end{tabular}
+    \label{tab:rw_posterior}
+  \end{table}
+
+  \newpage
+
+  \vfill
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[width = \textwidth]{qqplot_yrep.pdf}
+    \caption{Q-Q plot of standardised observed data against
+      standardised PPD samples.}
+    \label{fig:qqplots}
+  \end{figure}
+  \vfill
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[width = 0.95\textwidth]{ppc_edf_overlay.pdf}
+    \caption{(Left) Densities of a subset of standardised PPD samples shown in
+      light blue in comparison to density estimate of standardised observed
+      data, shown in darker blue. (Right) Empirical cumulative density function
+      of a subset of standardised PPD samples in light blue compared to the ECDF
+      of standardised observed data \(y\) in dark blue.}
+    \label{fig:edf_comparison}
+  \end{figure}
+  \vfill
+
+  \newpage
+
+  \vfill
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[width = 0.95\textwidth]{ppc_rw.pdf} 
+    \caption{Posterior predictive checks for the random walk piecewise 
+    model.\@ The histogram shows estimates from the standardised posterior
+    predictive sample matrix, and the vertical blue line represents the observed
+    estimate from the data. Dashed lines show 95\% probability bands. The
+    quantity \(p\) represents the cumulative density evaluated at the estimated
+    statistic, called the Bayes \(p\)-value.}
+    \label{fig:ppc_rw}
+  \end{figure}
+  \vfill
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[width = 0.95\textwidth]{betas.pdf}
+    \caption{Index plot of coefficients \(\beta_1, \ldots, \beta_m\), showing
+    their posterior mean with 95\% credible sets.}
+    \label{fig:betas}
+  \end{figure}
+  \vfill
+
+  \newpage
+
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[width = \textwidth]{post_mean.pdf}
+    \caption{Plot comparing posterior mean of GEV distribution with location
+    parameter \(\mu_t = \tau(t, \theta)\) with line plot of data.\@ Here,
+    \(\theta\) is a parameter vector modelled in the latent layer. Dashed lines
+    indicate 95\% probability bands.}
+    \label{fig:post_mean}
+  \end{figure}
+
+
+  \section{Discussion}
+  Model comparison using information criteria clearly favoured non-stationary
+  models with a temporally evolving location parameter.\@ Although differences
+  in accuracy between variants of the piecewise model and the linear time
+  trend model are small, the random walk model is most favourable when
+  considering the LOOIC and WAIC information criteria. Empirical model
+  evaluation using posterior predictive sampling showed that the model describes
+  variability within the data reasonably well, with quantiles generated from the
+  posterior predictive distribution and the data falling approximately on the
+  identity line on a Q-Q plot, indicating the absence of lack of fit for the
+  optimal model.
+
+  Improved accuracy in models that implement an evolving location parameter
+  over time suggests that the mean annual maximum precipitation is variable
+  with time.\@ A line plot of the posterior mean of the GEV variable modelled
+  in the selected piecewise model shows an upward trend from \(t = 0\) up to
+  approximately one hundred years, followed by what seems to be a downward
+  trend in the remaining thirty or so years of the data. Whether this trend
+  will continue in this fashion remains to be seen.\@ However, it is important
+  to note that the trend observed in these data may not reflect what one would
+  observe in other locations.
+
+  The modelling of extremes such as those explored in these data is an
+  interesting topic in statistics, both in theory and practice.\@ Limiting
+  behaviours of block maxima ensured by the Fisher-Tippett theorem make the
+  GEV distribution an easy candidate for the likelihood of data, but as shown
+  in this article, the design of the latent layer in a Bayesian setting can
+  vastly improve the accuracy of these models, such as in an iterated 
+  setting with parameters evolving over time. Additionally, the addition of
+  spacial effects and the inclusion of covariates relevant to the measuring
+  stations from which the data are sources can improve accuracy even
+  further, e.g. in \cite{dyrrdal_bayesian_2015}, \cite{hazra_bayesian_2023},
+  and \cite{johannesson_approximate_2022}. By leveraging these advanced
+  techniques, more precise estimates and better predictions of extreme events
+  can be achieved.
+
+  \printbibliography
+
+  \newpage
+
+  \appendix
+
+  \section{Convergence of MCMC samplers}
+  \subsection{Stationary model}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.85\textwidth]{trace_null.pdf}
+    \caption{Trace plot of the parameters for the stationary (fixed-parameter)
+    model.}
+  \end{figure}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.85\textwidth]{acf_null.pdf}
+    \caption{Plot of autocorrelation function \(\rho(l)\) for the
+    stationary model.}
+  \end{figure}
+
+  \subsection{Non-stationary model (linear trend)}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.85\textwidth]{trace_timetrend.pdf}
+		\caption{Parameter summary statistics for the timetrend model.}
+  \end{figure}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.76\textwidth]{acf_timetrend.pdf}
+    \caption{Plot of autocorrelation function \(\rho(l)\) for
+    the linear time trend model.}
+  \end{figure}
+
+  \subsection{Non-stationary model (non-linear, random walk prior)}
+
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.7\textwidth]{trace_rw.pdf}
+    \caption{Trace plot of parameters of random walk prior piecewise 
+    model.}
+  \end{figure}
+
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width = 0.6\textwidth]{acf_rw_1.pdf}
+    \includegraphics[width = 0.6\textwidth]{acf_rw_2.pdf}
+    \caption{Plot of autocorrelation function \(\rho(l)\) for
+    the random walk prior piecewise model.}
+  \end{figure}
+
+\end{document}
