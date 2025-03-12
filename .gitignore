@@ -49,7 +49,6 @@ po/*~
 rsconnect/
 
 ## Core latex/pdflatex auxiliary files:
-pdf/presentation
 **/*.aux
 **/*.lof
 **/*.log
