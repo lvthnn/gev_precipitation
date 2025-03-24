@@ -16,8 +16,8 @@ Model evaluation using WAIC and LOOIC information criteria demonstrates that non
 ## Repository Structure
 
 - `data/`: Precipitation datasets
-  - `dt_maxprecip.csv`: Maximum precipitation data
-  - `precip_data.csv`: General precipitation data
+  - `dt_maxprecip.csv`: Processed (maximum annual) precipitation data
+  - `precip_data.csv`: Raw precipitation data
 - `pdf/`: Documentation
   - `report/report_full.pdf`: Comprehensive report with methodology and results
 - `src/`: Implementation
