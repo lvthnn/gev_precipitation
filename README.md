@@ -2,8 +2,6 @@
 
 This repository contains the implementation of Bayesian modelling methods for extreme precipitation events using Generalized Extreme Value (GEV) distributions. The analysis focuses on $n = 132$ annual maximum precipitation measurements from a weather station in southern England.
 
-![Trend plot of the data used in the study.](https://github.com/lvthnn/gev_precipitation_data/blob/24dc370e28e7f8410a7afd1eeeeb0517bda8dac8/pdf/img/trendplot.pdf)
-
 ## Overview
 
 The repository implements several models:
@@ -14,8 +12,6 @@ The repository implements several models:
   - Piecewise linear trend models with various prior structures (IID, AR(1), random walk)
 
 Model evaluation using WAIC and LOOIC information criteria demonstrates that non-stationary models better characterize the data, with the random walk piecewise model yielding the most favourable results.
-
-![LOOIC / WAIC for the different models considered in the study](https://github.com/lvthnn/gev_precipitation_data/blob/24dc370e28e7f8410a7afd1eeeeb0517bda8dac8/pdf/img/optim_m.pdf)
 
 ## Repository Structure
 
