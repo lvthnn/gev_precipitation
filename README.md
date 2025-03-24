@@ -1,6 +1,6 @@
 # Bayesian Modelling of Extreme Precipitation Events
 
-This repository contains the implementation of Bayesian modelling methods for extreme precipitation events using Generalized Extreme Value (GEV) distributions. The analysis focuses on 132 annual maximum precipitation measurements from a weather station in southern England.
+This repository contains the implementation of Bayesian modelling methods for extreme precipitation events using Generalized Extreme Value (GEV) distributions. The analysis focuses on $n = 132$ annual maximum precipitation measurements from a weather station in southern England.
 
 ## Overview
 
