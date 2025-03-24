@@ -4,7 +4,7 @@ This repository contains the implementation of Bayesian modelling methods for ex
 
 ## Overview
 
-The repository implements several models (excluding the trend effects $\beta_j$):
+The repository implements several models:
 
 - Stationary GEV model with fixed parameters
 - Non-stationary models with evolving location parameters:
@@ -37,7 +37,7 @@ Model evaluation using WAIC and LOOIC information criteria demonstrates that non
 
 The random walk piecewise model with m=18 coefficients produced the most favourable results. The optimal model shows an upward trend in annual maximum precipitation for approximately 100 years, followed by a potential downward trend in the remaining years.
 
-Parameter estimates for the optimal model:
+Parameter estimates for the optimal model (excluding the trend effects $\beta_j$):
 
 | Parameter | Mean    | Median  | 95% Credible Interval |
 |-----------|---------|---------|------------------------|
