@@ -2,6 +2,9 @@
 
 This repository contains the implementation of Bayesian modelling methods for extreme precipitation events using Generalized Extreme Value (GEV) distributions. The analysis focuses on $n = 132$ annual maximum precipitation measurements from a weather station in southern England.
 
+For a complete description of the methodology, theoretical background, and detailed results,
+please refer to the [full report](pdf/report/report_full.pdf) in the repository.
+
 ## Overview
 
 The repository implements several models:
@@ -44,8 +47,3 @@ Parameter estimates for the optimal model (excluding the trend effects $\beta_j$
 | $\mu_0$        | 20.7    | 20.7    | (18.0, 23.3)           |
 | $\sigma$        | 6.56    | 6.54    | (5.72, 7.50)           |
 | $\xi$   | 0.0593  | 0.0574  | (-0.0587, 0.187)       |
-
-## Documentation
-
-For a complete description of the methodology, theoretical background, and detailed results,
-please refer to the [full report](pdf/report/report_full.pdf) in the repository.
