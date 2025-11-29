@@ -35,7 +35,7 @@ Model evaluation using WAIC and LOOIC information criteria demonstrates that non
 
 ## Key Results
 
-The random walk piecewise model with m=18 coefficients produced the most favourable results. The optimal model shows an upward trend in annual maximum precipitation for approximately 100 years, followed by a potential downward trend in the remaining years.
+The random walk piecewise model with $m = 18$ coefficients produced the most favourable results. The optimal model shows an upward trend in annual maximum precipitation for approximately 100 years, followed by a potential downward trend in the remaining years.
 
 Parameter estimates for the optimal model (excluding the trend effects $\beta_j$):
 
